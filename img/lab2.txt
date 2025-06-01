@@ -1,0 +1,65 @@
+// MongoDB
+Airports
+-
+code string PK
+name string
+city string
+country string
+runways int
+
+Aircrafts
+-
+reg_number string PK
+model string
+manufacturer string
+capacity int
+last_maintenance datetime
+status enum
+
+Flights
+-
+flight_id string PK
+airline_code string
+airline_name string
+aircraft string FK > Aircrafts.reg_number
+status enum
+departure_airport string FK > Airports.code
+departure_time datetime
+departure_gate string
+arrival_airport string FK > Airports.code
+arrival_time datetime
+passengers string[]  FK > Passengers.passenger_id
+
+Passengers
+-
+passenger_id string PK
+full_name string
+passport string
+nationality string
+contact object
+tickets object[] FK > Tickets.ticket_id
+
+// Cassandra
+Tickets
+-
+ticket_id string PK
+passenger_id string
+flight_id string
+seat string
+class enum
+price decimal
+booking_date timestamp
+
+Baggage
+-
+baggage_id string PK
+ticket_id string FK > Tickets.ticket_id
+weight float
+status enum
+last_updated timestamp
+
+Flight_status
+-
+flight_id string PK FK > Flights.flight_id
+status string
+last_update timestamp
