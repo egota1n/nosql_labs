@@ -30,7 +30,7 @@ CREATE TABLE tickets (
     passenger_id TEXT,
     flight_id TEXT,
     seat TEXT,
-    class TEXT,
+    class_place TEXT,
     price DECIMAL,
     booking_date TIMESTAMP
 )
@@ -57,7 +57,7 @@ CREATE TABLE flight_status (
 """)
 
 insert_ticket = session.prepare("""
-INSERT INTO tickets (ticket_id, passenger_id, flight_id, seat, class, price, booking_date)
+INSERT INTO tickets (ticket_id, passenger_id, flight_id, seat, class_place, price, booking_date)
 VALUES (?, ?, ?, ?, ?, ?, ?)
 """)
 
@@ -86,7 +86,7 @@ for passenger in mongo_db.passengers.find():
                 passenger['passenger_id'],
                 ticket['flight_id'],
                 ticket['seat'],
-                ticket['class'],
+                ticket['class_place'],
                 float(ticket['price']),
                 ticket['booking_date']
             ))
