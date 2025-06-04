@@ -15,7 +15,7 @@ with neo4j.session() as session:
             "passenger_id": row.passenger_id,
             "flight_id": row.flight_id,
             "seat": row.seat,
-            "class": getattr(row, 'class', 'unknown'),
+            "class_place":  row.class_place,
             "price": float(row.price),
             "booking_date": row.booking_date
         }
@@ -30,7 +30,7 @@ with neo4j.session() as session:
             SET r += {
                 ticket_id: $ticket_id,
                 seat: $seat,
-                class: $class,
+                class_place: $class_place,
                 price: $price,
                 booking_date: datetime($booking_date)
             }

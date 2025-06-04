@@ -65,7 +65,7 @@ def generate_aircrafts(num=50):
     
     db.aircrafts.insert_many(aircrafts)
 
-def generate_passengers(num=2_000_000):
+def generate_passengers(num=20_000):
     passengers = []
     for _ in range(num):
         passenger_id = f"pas_{uuid.uuid4().hex[:8]}"
@@ -131,7 +131,7 @@ def generate_flights_and_tickets(num_flights=100, tickets_per_flight=100):
                     "ticket_id": ticket_id,
                     "flight_id": flight_id,
                     "seat": f"{random.randint(1, 40)}{random.choice('ABCDEF')}",
-                    "class": random.choice(["economy", "business", "first"]),
+                    "class_place": random.choice(["economy", "business", "first"]),
                     "price": round(random.uniform(50, 2000), 2),
                     "booking_date": datetime.now() - timedelta(days=random.randint(1, 365))
                 }}}
