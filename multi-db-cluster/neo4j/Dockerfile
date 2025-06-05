@@ -1,0 +1,2 @@
+FROM neo4j:4.4-enterprise
+ENV NEO4J_ACCEPT_LICENSE_AGREEMENT=yes

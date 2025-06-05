@@ -1,0 +1,284 @@
+services:
+  mongo1:
+    image: mongo:5.0
+    hostname: mongo1
+    container_name: mongo1
+    volumes:
+      - ./mongo-secrets:/mongo-secrets:ro
+    command:
+      - mongod
+      - --replSet
+      - rs0
+      - --bind_ip_all
+      - --keyFile
+      - /mongo-secrets/keyfile
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh -u root -p example --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - db-network
+
+  mongo2:
+    image: mongo:5.0
+    container_name: mongo2
+    volumes:
+      - ./mongo-secrets:/mongo-secrets:ro
+    command: 
+      - mongod
+      - --replSet
+      - rs0
+      - --bind_ip_all
+      - --keyFile
+      - /mongo-secrets/keyfile
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    depends_on:
+      mongo1:
+        condition: service_healthy
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh -u root -p example --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - db-network
+
+  mongo3:
+    image: mongo:5.0
+    container_name: mongo3
+    volumes:
+      - ./mongo-secrets:/mongo-secrets:ro
+    command: 
+      - mongod
+      - --replSet
+      - rs0
+      - --bind_ip_all
+      - --keyFile
+      - /mongo-secrets/keyfile
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh -u root -p example --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - db-network
+
+  mongo-init:
+    image: mongo:5.0
+    container_name: mongo-init
+    volumes:
+      - ./mongo-secrets:/mongo-secrets:ro
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
+    command: >
+      bash -c 'mongosh --host mongo1 -u root -p example --eval "rs.initiate({
+        _id: \"rs0\",
+        members: [
+          {_id: 0, host: \"mongo1:27017\"},
+          {_id: 1, host: \"mongo2:27017\"},
+          {_id: 2, host: \"mongo3:27017\"}
+        ]
+      })" &&
+      mongosh --host mongo1 -u root -p example --eval "rs.status()"'
+    networks:
+      - db-network
+
+  cassandra-seed:
+    image: cassandra:4.1
+    container_name: cassandra-seed
+    hostname: cassandra-seed
+    environment:
+      CASSANDRA_CLUSTER_NAME: "TestCluster"
+      CASSANDRA_DC: dc1
+      CASSANDRA_RACK: rack1
+      CASSANDRA_SEEDS: cassandra-seed
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      CASSANDRA_LISTEN_ADDRESS: cassandra-seed
+      CASSANDRA_BROADCAST_ADDRESS: cassandra-seed
+      CASSANDRA_NUM_TOKENS: 16
+      JVM_EXTRA_OPTS: >
+        -Xms2G -Xmx2G 
+        -Dcassandra.skip_wait_for_gossip_to_settle=0 
+        -Dcassandra.initial_token=0
+        -Dcassandra.available_processors=2
+      MAX_HEAP_SIZE: 2G
+      HEAP_NEWSIZE: 800M
+    volumes:
+      - cassandra-seed-data:/var/lib/cassandra
+    ports:
+      - "9042:9042"
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "DESCRIBE CLUSTER"]
+      interval: 15s
+      timeout: 30s
+      retries: 40
+      start_period: 120s
+    networks:
+      - db-network
+
+  cassandra-node1:
+    image: cassandra:4.1
+    container_name: cassandra-node1
+    hostname: cassandra-node1
+    environment:
+      CASSANDRA_CLUSTER_NAME: "TestCluster"
+      CASSANDRA_DC: dc1
+      CASSANDRA_RACK: rack1
+      CASSANDRA_SEEDS: cassandra-seed
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      CASSANDRA_LISTEN_ADDRESS: cassandra-node1
+      CASSANDRA_BROADCAST_ADDRESS: cassandra-node1
+      CASSANDRA_NUM_TOKENS: 16
+      JVM_EXTRA_OPTS: >
+        -Xms2G -Xmx2G 
+        -Dcassandra.skip_wait_for_gossip_to_settle=0
+        -Dcassandra.available_processors=2
+      MAX_HEAP_SIZE: 2G
+      HEAP_NEWSIZE: 800M
+    volumes:
+      - cassandra-node1-data:/var/lib/cassandra
+    depends_on:
+      cassandra-seed:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nodetool", "status", "--port", "7199"]
+      interval: 20s
+      timeout: 30s
+      retries: 30
+      start_period: 60s
+    networks:
+      - db-network
+
+  cassandra-node2:
+    image: cassandra:4.1
+    container_name: cassandra-node2
+    hostname: cassandra-node2
+    environment:
+      CASSANDRA_CLUSTER_NAME: "TestCluster"
+      CASSANDRA_DC: dc1
+      CASSANDRA_RACK: rack1
+      CASSANDRA_SEEDS: cassandra-seed
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      CASSANDRA_LISTEN_ADDRESS: cassandra-node2
+      CASSANDRA_BROADCAST_ADDRESS: cassandra-node2
+      CASSANDRA_NUM_TOKENS: 16
+      JVM_EXTRA_OPTS: >
+        -Xms2G -Xmx2G 
+        -Dcassandra.skip_wait_for_gossip_to_settle=0
+        -Dcassandra.available_processors=2
+      MAX_HEAP_SIZE: 2G
+      HEAP_NEWSIZE: 800M
+    volumes:
+      - cassandra-node2-data:/var/lib/cassandra
+    depends_on:
+      cassandra-seed:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nodetool", "status", "--port", "7199"]
+      interval: 20s
+      timeout: 30s
+      retries: 30
+      start_period: 60s
+    networks:
+      - db-network
+
+  neo4j-core1:
+    build: ./neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+      - "5001:5000"
+      - "6001:6000"
+      - "7001:7000"
+    hostname: neo4j-core1
+    container_name: neo4j1
+    environment:
+      NEO4J_causal__clustering_initial__discovery__members: neo4j-core1:5000,neo4j-core2:5000,neo4j-core3:5000
+      NEO4J_causal__clustering_discovery__advertised__address: neo4j-core1:5000
+      NEO4J_causal__clustering_transaction__advertised__address: neo4j-core1:6000
+      NEO4J_causal__clustering_raft__advertised__address: neo4j-core1:7000
+
+      NEO4J_dbms_connector_http_advertised__address: localhost:7474
+      NEO4J_dbms_connector_bolt_advertised__address: localhost:7687
+      NEO4J_dbms_mode: CORE
+      NEO4J_AUTH: "neo4j/test1234"
+    networks:
+      - db-network
+
+  neo4j-core2:
+    build: ./neo4j
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+      - "5002:5000"
+      - "6002:6000"
+      - "7002:7000"
+    hostname: neo4j-core2
+    container_name: neo4j2
+    environment:
+      NEO4J_causal__clustering_initial__discovery__members: neo4j-core1:5000,neo4j-core2:5000,neo4j-core3:5000
+      NEO4J_causal__clustering_discovery__advertised__address: neo4j-core2:5000
+      NEO4J_causal__clustering_transaction__advertised__address: neo4j-core2:6000
+      NEO4J_causal__clustering_raft__advertised__address: neo4j-core2:7000
+      NEO4J_dbms_connector_bolt_advertised__address: localhost:7688
+      NEO4J_dbms_connector_http_advertised__address: localhost:7475
+      NEO4J_dbms_mode: CORE
+      NEO4J_AUTH: "neo4j/test1234"
+    depends_on:
+      - neo4j-core1
+    networks:
+      - db-network
+
+  neo4j-core3:
+    build: ./neo4j
+    ports:
+      - "7476:7474"
+      - "7689:7687"
+      - "5003:5000"
+      - "6003:6000"
+      - "7003:7000"
+    hostname: neo4j-core3
+    container_name: neo4j3
+    environment:
+      NEO4J_causal__clustering_initial__discovery__members: neo4j-core1:5000,neo4j-core2:5000,neo4j-core3:5000
+      NEO4J_causal__clustering_discovery__advertised__address: neo4j-core3:5000
+      NEO4J_causal__clustering_transaction__advertised__address: neo4j-core3:6000
+      NEO4J_causal__clustering_raft__advertised__address: neo4j-core3:7000
+      NEO4J_dbms_connector_bolt_advertised__address: localhost:7689
+      NEO4J_dbms_connector_http_advertised__address: localhost:7476
+      NEO4J_dbms_mode: CORE
+      NEO4J_AUTH: "neo4j/test1234"
+    depends_on:
+      - neo4j-core1
+      - neo4j-core2
+    networks:
+      - db-network
+
+networks:
+  db-network:
+    driver: bridge
+
+
+volumes:
+  cassandra-seed-data:
+  cassandra-node1-data:
+  cassandra-node2-data:
